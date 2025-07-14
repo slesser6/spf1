@@ -30,7 +30,15 @@ sudo apt install python3-colcon-common-extensions
 ```
 
 #### Node setup
+ros2 pkg create  --build-type ament_cmake --license Apache-2.0 pkg_name
+colcon build --packages-select pkg_name
+. install/setup.bash
+ros2 run pkg_name node_name
 
+
+i2c: 
+sudo chmod 666 /dev/i2c-1
+ros2 topic echo /imu/data_raw
 
 ### OpenCV
 
