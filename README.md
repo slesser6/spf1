@@ -27,6 +27,7 @@ sudo apt-get install ros-kilted-ros-gz
 sudo apt-get install ros-kilted-rclc
 sudo apt install wiringpi
 sudo apt install python3-colcon-common-extensions
+sudo apt install libmosquitto-dev
 ```
 
 #### Node setup
