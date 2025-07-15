@@ -27,7 +27,7 @@ sudo apt-get install ros-kilted-ros-gz
 sudo apt-get install ros-kilted-rclc
 sudo apt install wiringpi
 sudo apt install python3-colcon-common-extensions
-sudo apt install libmosquitto-dev
+sudo apt install libmosquitto-dev mosquitto
 ```
 
 #### Node setup
@@ -36,10 +36,15 @@ colcon build --packages-select pkg_name
 . install/setup.bash
 ros2 run pkg_name node_name
 
+#### MQTT setup
+sudo systemctl enable mosquitto
+sudo systemctl start mosquitto
 
-i2c: 
+Bind listener to host IP on port 1883
+
+#### I2C setup
+
 sudo chmod 666 /dev/i2c-1
-ros2 topic echo /imu/data_raw
 
 ### OpenCV
 
