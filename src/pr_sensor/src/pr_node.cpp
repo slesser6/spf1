@@ -18,7 +18,7 @@ public:
         mosquitto_connect_callback_set(mqtt_, on_connect);
         mosquitto_message_callback_set(mqtt_, on_message);
 
-        if (mosquitto_connect(mqtt_, "esp32-pr", 1883, 60) != MOSQ_ERR_SUCCESS) {
+        if (mosquitto_connect(mqtt_, "localhost", 1883, 60) != MOSQ_ERR_SUCCESS) {
             throw std::runtime_error("Failed to connect to MQTT broker");
         }
 
