@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(pr_sensor)
+project(path_planner)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter)
@@ -8,18 +8,18 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(sensor_msgs REQUIRED)
+find_package(OpenCV REQUIRED)
 
-add_executable(pr_node src/pr_node.cpp)
-target_link_libraries(pr_node PUBLIC
+add_executable(path_planner src/path_planner.cpp)
+target_link_libraries(path_planner PUBLIC
       ${sensor_msgs_TARGETS}
       rclcpp::rclcpp
-      sensor_msgs::sensor_msgs_library
-      mosquitto
+      ${OpenCV_LIBS}
     )
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 install(TARGETS
-  pr_node
+  path_planner
   DESTINATION lib/${PROJECT_NAME}
 )
 

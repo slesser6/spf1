@@ -48,11 +48,53 @@ sudo chmod 666 /dev/i2c-1
 
 ### OpenCV
 
+OpenCL
+```
+sudo apt install build-essential git cmake opencl-headers ocl-icd-opencl-dev
+```
 
-## Usage
+OpenGL
+```
+sudo apt install pkg-config mesa-utils libglu1-mesa-dev freeglut3-dev mesa-common-dev libglew-dev libglfw3-dev libglm-dev libao-dev libmpg123-dev
+```
+
+Gstreamer
+```
+sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
+```
+
+OpenCV
+```
+sudo apt install libharfbuzz-dev libtesseract-dev libgoogle-glog-dev libgflags-dev libgtk-3-dev
+cd ~
+git clone https://github.com/opencv/opencv.git
+git clone https://github.com/opencv/opencv_contrib.git
+cd ~/opencv
+mkdir build
+cd build
+cmake -D CMAKE_BUILD_TYPE=RELEASE \
+      -D CMAKE_INSTALL_PREFIX=/usr/local \
+      -D OPENCV_EXTRA_MODULES_PATH=~/opencv_contrib/modules \
+      -D WITH_GSTREAMER=ON \
+      -D WITH_OPENGL=ON \
+      -D WITH_OPENCL=ON \
+      -D WITH_TBB=ON \
+      -D CPU_BASELINE=NEON \
+      -D BUILD_TESTS=OFF \
+      -D BUILD_PERF_TESTS=OFF \
+      -D BUILD_EXAMPLES=OFF ..
+```
+
+## Usages
 
 1. To setup ROS, run `source /opt/ros/kilted/setup.bash`
-2. To test the motors run `g++ src/test_motor_driver.cpp src/motor_driver.cpp -Iinclude -lwiringPi -o motor_test` then `sudo ./motor_test`
-
+2. To test the motors run `g++ src/test_motor_driver.cpp src/motor_driver.cpp -Iinclude -lwiringPi -o motor_test`
+3. To test the OpenCV components run 
+```
+g++ test_opencl.cpp -o test_opencl `pkg-config --cflags --libs opencv4`
+g++ test_opengl.cpp -o test_opengl `pkg-config --cflags --libs opencv4`
+g++ test_gstreamer.cpp -o test_gstreamer `pkg-config --cflags --libs opencv4`
+g++ test_dual_camera.c -o test_dual_camera `pkg-config --cflags --libs opencv4`
+```
 
 https://docs.ros.org/en/kilted/Tutorials/Beginner-Client-Libraries.html

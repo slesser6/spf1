@@ -18,7 +18,7 @@ public:
         mosquitto_connect_callback_set(mqtt_, on_connect);
         mosquitto_message_callback_set(mqtt_, on_message);
 
-        if (mosquitto_connect(mqtt_, "localhost", 1883, 60) != MOSQ_ERR_SUCCESS) {
+        if (mosquitto_connect(mqtt_, "192.168.0.42", 1883, 60) != MOSQ_ERR_SUCCESS) {
             throw std::runtime_error("Failed to connect to MQTT broker");
         }
 
@@ -77,3 +77,10 @@ private:
     struct mosquitto *mqtt_;
     std::unordered_map<std::string, rclcpp::Publisher<sensor_msgs::msg::Illuminance>::SharedPtr> publishers_;
 };
+
+int main(int argc, char *argv[]) {
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<PRNode>());
+    rclcpp::shutdown();
+    return 0;
+}
