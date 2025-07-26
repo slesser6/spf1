@@ -5,7 +5,11 @@ Solar Positioning Friend v1
 Embedded Systems Development Lab project to create a robot that navigates to the sunniest spot for solar harvesting with a solar panel
 
 ## Setup
-
+```
+sudo apt install wiringpi
+sudo apt install libmosquitto-dev mosquitto
+sudo apt install doxygen
+```
 
 
 ### ROS
@@ -25,26 +29,29 @@ sudo apt install ros-dev-tools
 sudo apt install ros-kilted-desktop
 sudo apt-get install ros-kilted-ros-gz
 sudo apt-get install ros-kilted-rclc
-sudo apt install wiringpi
 sudo apt install python3-colcon-common-extensions
-sudo apt install libmosquitto-dev mosquitto
 ```
 
 #### Node setup
+```
 ros2 pkg create  --build-type ament_cmake --license Apache-2.0 pkg_name
 colcon build --packages-select pkg_name
 . install/setup.bash
 ros2 run pkg_name node_name
+ros2 topic echo /topic name
+```
 
-#### MQTT setup
+### MQTT setup
+```
 sudo systemctl enable mosquitto
 sudo systemctl start mosquitto
-
+```
 Bind listener to host IP on port 1883
 
-#### I2C setup
-
+### I2C setup
+```
 sudo chmod 666 /dev/i2c-1
+```
 
 ### OpenCV
 
@@ -65,7 +72,7 @@ sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgst
 
 OpenCV
 ```
-sudo apt install libharfbuzz-dev libtesseract-dev libgoogle-glog-dev libgflags-dev libgtk-3-dev
+sudo apt install libharfbuzz-dev libtesseract-dev libgoogle-glog-dev libgflags-dev libgtk-3-dev pocl-opencl-icd ocl-icd-libopencl1
 cd ~
 git clone https://github.com/opencv/opencv.git
 git clone https://github.com/opencv/opencv_contrib.git
@@ -87,14 +94,30 @@ cmake -D CMAKE_BUILD_TYPE=RELEASE \
 
 ## Usages
 
-1. To setup ROS, run `source /opt/ros/kilted/setup.bash`
-2. To test the motors run `g++ src/test_motor_driver.cpp src/motor_driver.cpp -Iinclude -lwiringPi -o motor_test`
-3. To test the OpenCV components run 
+To use ROS, run:
 ```
-g++ test_opencl.cpp -o test_opencl `pkg-config --cflags --libs opencv4`
-g++ test_opengl.cpp -o test_opengl `pkg-config --cflags --libs opencv4`
-g++ test_gstreamer.cpp -o test_gstreamer `pkg-config --cflags --libs opencv4`
-g++ test_dual_camera.c -o test_dual_camera `pkg-config --cflags --libs opencv4`
+source /opt/ros/kilted/setup.bash
 ```
 
-https://docs.ros.org/en/kilted/Tutorials/Beginner-Client-Libraries.html
+To build all the nodes, run:
+```
+bash build.sh
+```
+
+To run all the nodes, run:
+```
+bash run.sh
+```
+
+To regenerate the docs and serve them, run:
+```
+bash docs.sh
+```
+
+To generate the test executables, run
+```
+bash test.sh
+```
+
+# Resources:
+- https://docs.ros.org/en/kilted/Tutorials/Beginner-Client-Libraries.html
