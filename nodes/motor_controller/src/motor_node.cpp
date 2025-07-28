@@ -24,7 +24,7 @@ public:
      * and starts a timer for the control loop.
      */
     MotorNode()
-        : Node("motor_controller"),
+        : Node("motor_node"),
           path_received_(false), imu_received_(false)
     {
         motor_driver_init();
@@ -37,14 +37,14 @@ public:
 
         // Subscribers
         path_sub_ = create_subscription<nav_msgs::msg::Path>(
-            "/path", 10, std::bind(&MotorNode::onPath, this, std::placeholders::_1));
+            "/path", 10, std::bind(&MotorNode::on_path, this, std::placeholders::_1));
         imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
-            "/sensors/imu", 10, std::bind(&MotorNode::onImu, this, std::placeholders::_1));
+            "/sensors/imu", 10, std::bind(&MotorNode::on_imu, this, std::placeholders::_1));
         status_srv_ = create_service<std_srvs::srv::Trigger>(
-            "/status", std::bind(&MotorNode::onStatus, this,
+            "/status", std::bind(&MotorNode::on_status, this,
                                  std::placeholders::_1, std::placeholders::_2));
         timer_ = create_wall_timer(
-            std::chrono::milliseconds(100), std::bind(&MotorNode::controlLoop, this));
+            std::chrono::milliseconds(100), std::bind(&MotorNode::control_loop, this));
 
         last_time_ = now();
         RCLCPP_INFO(get_logger(), "MotorNode started");
@@ -58,7 +58,7 @@ private:
      *
      * @param msg Shared pointer to the received Path message.
      */
-    void onPath(const nav_msgs::msg::Path::SharedPtr msg)
+    void on_path(const nav_msgs::msg::Path::SharedPtr msg)
     {
         if (!msg->poses.empty())
         {
@@ -74,7 +74,7 @@ private:
      *
      * @param msg Shared pointer to the received IMU message.
      */
-    void onImu(const sensor_msgs::msg::Imu::SharedPtr msg)
+    void on_imu(const sensor_msgs::msg::Imu::SharedPtr msg)
     {
         current_orientation_ = msg->orientation;
         imu_received_ = true;
@@ -87,7 +87,7 @@ private:
      * and sends motor commands accordingly.
      * If inputs are missing, motors are stopped.
      */
-    void controlLoop()
+    void control_loop()
     {
         if (!path_received_ || !imu_received_)
         {
@@ -97,8 +97,8 @@ private:
         }
 
         // Compute yaw from quaternion
-        float yaw = getYawFromQuaternion(current_orientation_);
-        float target_yaw = computeTargetYaw(target_pose_);
+        float yaw = get_yaw_from_quaternion(current_orientation_);
+        float target_yaw = compute_target_yaw(target_pose_);
 
         float dt = (now() - last_time_).seconds();
         last_time_ = now();
@@ -128,7 +128,7 @@ private:
      * @param request Service request (unused).
      * @param response Service response containing status.
      */
-    void onStatus(const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+    void on_status(const std::shared_ptr<std_srvs::srv::Trigger::Request>,
                   std::shared_ptr<std_srvs::srv::Trigger::Response> res)
     {
         res->success = path_received_ && imu_received_;
@@ -143,7 +143,7 @@ private:
      * @param q Quaternion to extract yaw from.
      * @return float Yaw angle in radians.
      */
-    float getYawFromQuaternion(const geometry_msgs::msg::Quaternion &q)
+    float get_yaw_from_quaternion(const geometry_msgs::msg::Quaternion &q)
     {
         // Basic Euler extraction (assuming flat ground)
         float siny_cosp = 2 * (q.w * q.z + q.x * q.y);
@@ -159,7 +159,7 @@ private:
      * @param target Target pose.
      * @return float Target yaw angle in radians.
      */
-    float computeTargetYaw(const geometry_msgs::msg::Pose &target)
+    float compute_target_yaw(const geometry_msgs::msg::Pose &target)
     {
         // Simple heading: use x/y from target pose
         float dx = target.position.x;

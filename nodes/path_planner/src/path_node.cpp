@@ -7,7 +7,7 @@ class PathNode : public rclcpp::Node
 {
 public:
     PathNode()
-        : Node("path_planner")
+        : Node("path_node")
     {
         path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/path", 10);
         timer_ = this->create_wall_timer(
