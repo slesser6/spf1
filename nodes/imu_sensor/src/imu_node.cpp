@@ -6,12 +6,18 @@
 #include <sys/ioctl.h>
 #include <cmath>
 #include <chrono>
+#include "MadgwickAHRS.h"
 
 using namespace std::chrono_literals;
 
 #define MPU6050_ADDR 0x68
 #define PWR_MGMT_1   0x6B
 #define ACCEL_XOUT_H 0x3B
+#define G 9.80665f
+#define PI_DEG 180.0f
+#define GYRO_SENSITIVITY 131.0f //assuming 131 LSB/(°/s)
+#define ACCEL_SENSITIVITY 16384.0f //assuming default sensitivity 16384 LSB/g
+#define SAMPLE_FREQ 100.0f //Hz
 
 /**
  * @class ImuNode
@@ -31,6 +37,8 @@ public:
      * @throws std::runtime_error if opening or configuring the I2C device fails.
      */
     ImuNode() : Node("imu_node") {
+        filter_.begin(SAMPLE_FREQ);
+
         imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/sensors/imu", 10);
         timer_ = this->create_wall_timer(100ms, std::bind(&ImuNode::publish_imu_data, this));
 
@@ -73,6 +81,7 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
     rclcpp::TimerBase::SharedPtr timer_;
     int i2c_file_;
+    Madgwick filter_;
 
     /**
      * @brief Reads a 16-bit signed word from the specified MPU6050 register.
@@ -104,15 +113,26 @@ private:
         int16_t gy = read_word(ACCEL_XOUT_H + 10);
         int16_t gz = read_word(ACCEL_XOUT_H + 12);
 
-        // Convert to m/s² (assuming default sensitivity 16384 LSB/g)
-        imu_msg.linear_acceleration.x = ax * 9.81 / 16384.0;
-        imu_msg.linear_acceleration.y = ay * 9.81 / 16384.0;
-        imu_msg.linear_acceleration.z = az * 9.81 / 16384.0;
+        // Convert to m/s²
+        imu_msg.linear_acceleration.x = ax * G / ACCEL_SENSITIVITY;
+        imu_msg.linear_acceleration.y = ay * G / ACCEL_SENSITIVITY;
+        imu_msg.linear_acceleration.z = az * G / ACCEL_SENSITIVITY;
 
-        // Convert to rad/s (assuming 131 LSB/(°/s))
-        imu_msg.angular_velocity.x = gx * M_PI / (180.0 * 131.0);
-        imu_msg.angular_velocity.y = gy * M_PI / (180.0 * 131.0);
-        imu_msg.angular_velocity.z = gz * M_PI / (180.0 * 131.0);
+        // Convert to rad/s
+        imu_msg.angular_velocity.x = gx * M_PI / (PI_DEG * GYRO_SENSITIVITY);
+        imu_msg.angular_velocity.y = gy * M_PI / (PI_DEG * GYRO_SENSITIVITY);
+        imu_msg.angular_velocity.z = gz * M_PI / (PI_DEG * GYRO_SENSITIVITY);
+
+        filter_.updateIMU(gx, gy, gz, ax, ay, az);
+        float q0 = filter_.q0;
+        float q1 = filter_.q1;
+        float q2 = filter_.q2;
+        float q3 = filter_.q3;
+
+        imu_msg.orientation.x = q0;
+        imu_msg.orientation.y = q1;
+        imu_msg.orientation.z = q2;
+        imu_msg.orientation.w = q3;
         
         imu_pub_->publish(imu_msg);
     }

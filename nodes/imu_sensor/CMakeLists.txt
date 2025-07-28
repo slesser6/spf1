@@ -10,7 +10,10 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
-add_executable(imu_node src/imu_node.cpp)
+# include headers
+include_directories(include)
+
+add_executable(imu_node src/imu_node.cpp src/MadgwickAHRS.cpp)
 target_link_libraries(imu_node PUBLIC
       ${sensor_msgs_TARGETS}
       rclcpp::rclcpp
