@@ -3,6 +3,7 @@
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/trigger.hpp>
 
 /**
@@ -33,23 +34,52 @@ public:
     pid_controller_.integral = 0.0f;
 
     // Subscribers
-    path_sub_ = create_subscription<nav_msgs::msg::Path>(
+    state_sub_ = this->create_subscription<std_msgs::msg::String>(
+        "/state/get", 10,
+        std::bind(&MotorNode::onState, this, std::placeholders::_1));
+    ctrl_sub_ = this->create_subscription<std_msgs::msg::String>(
+        "/motor/control", 10,
+        std::bind(&MotorNode::onControl, this, std::placeholders::_1));
+    path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
         "/path", 10,
         std::bind(&MotorNode::onPath, this, std::placeholders::_1));
-    imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
+    imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
         "/sensors/imu", 10,
         std::bind(&MotorNode::onImu, this, std::placeholders::_1));
-    status_srv_ = create_service<std_srvs::srv::Trigger>(
+    status_srv_ = this->create_service<std_srvs::srv::Trigger>(
         "/status", std::bind(&MotorNode::onStatus, this, std::placeholders::_1,
                              std::placeholders::_2));
-    timer_ = create_wall_timer(std::chrono::milliseconds(100),
-                               std::bind(&MotorNode::controlLoop, this));
+    timer_ = this->create_wall_timer(std::chrono::milliseconds(100),
+                                     std::bind(&MotorNode::controlLoop, this));
 
     last_time_ = now();
     RCLCPP_INFO(get_logger(), "MotorNode started");
   }
 
 private:
+  /**
+   * @brief Callback for receiving state change messages.
+   *
+   * Updates the current state.
+   *
+   * @param msg Shared pointer to the received String message.
+   */
+  void onState(const std_msgs::msg::String::SharedPtr msg) {
+    state_ = msg->data;
+  }
+
+  /**
+   * @brief Callback for receiving motor control messages.
+   *
+   * Updates the motor control command.
+   *
+   * @param msg Shared pointer to the received String message.
+   */
+  void onControl(const std_msgs::msg::String::SharedPtr msg) {
+    current_ctrl_ = msg->data;
+    ctrl_received_ = true;
+  }
+
   /**
    * @brief Callback for receiving navigation path messages.
    *
@@ -86,29 +116,55 @@ private:
    * If inputs are missing, motors are stopped.
    */
   void controlLoop() {
-    if (!path_received_ || !imu_received_) {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
-                           "Waiting for inputs...");
-      motorStop();
-      return;
-    }
 
-    // Compute yaw from quaternion
-    float yaw = getYawFromQuaternion(current_orientation_);
-    float target_yaw = computeTargetYaw(target_pose_);
+    if (state_ == "CTRL" || state_ == "ALIGN") {
+      if (!ctrl_received_) {
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
+                             "Waiting for inputs...");
+        motorStop();
+        return;
+      }
+      switch (current_ctrl_[0]) {
+      case 'R':
+        motorTurnRight(100);
+        break;
+      case 'L':
+        motorTurnLeft(100);
+        break;
+      case 'F':
+        motorDriveForward(100);
+        break;
+      case 'B':
+        motorDriveBackward(100);
+        break;
+      default:
+        motorStop();
+      }
+    } else if (state_ == "NAV") {
+      if (!path_received_ || !imu_received_) {
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
+                             "Waiting for inputs...");
+        motorStop();
+        return;
+      }
 
-    float dt = (now() - last_time_).seconds();
-    last_time_ = now();
+      // Compute yaw from quaternion
+      float yaw = getYawFromQuaternion(current_orientation_);
+      float target_yaw = computeTargetYaw(target_pose_);
 
-    float control_signal = pidCompute(&pid_controller_, target_yaw, yaw, dt);
-    int speed = clampSpeed(std::abs(control_signal) * 100.0f);
+      float dt = (now() - last_time_).seconds();
+      last_time_ = now();
 
-    if (std::abs(control_signal) < 0.05f) {
-      motorDriveForward(speed);
-    } else if (control_signal > 0) {
-      motorTurnLeft(speed);
-    } else {
-      motorTurnRight(speed);
+      float control_signal = pidCompute(&pid_controller_, target_yaw, yaw, dt);
+      int speed = clampSpeed(std::abs(control_signal) * 100.0f);
+
+      if (std::abs(control_signal) < 0.05f) {
+        motorDriveForward(speed);
+      } else if (control_signal > 0) {
+        motorTurnLeft(speed);
+      } else {
+        motorTurnRight(speed);
+      }
     }
   }
 
@@ -157,16 +213,19 @@ private:
   }
 
   // ROS Interfaces
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr state_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr ctrl_sub_;
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr status_srv_;
   rclcpp::TimerBase::SharedPtr timer_;
 
   // State
-  bool path_received_, imu_received_;
+  bool path_received_, imu_received_, ctrl_received_;
   geometry_msgs::msg::Pose target_pose_;
   geometry_msgs::msg::Quaternion current_orientation_;
   rclcpp::Time last_time_;
+  std::string state_, current_ctrl_;
 
   // PID Controller
   PIDController pid_controller_;

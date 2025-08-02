@@ -11,14 +11,15 @@
 #include <cmath>
 #include <queue>
 #include <vector>
-
-/// @class PathNode
-/// @brief Node that subscribes to a stereo depth image and a sun pose, and
-/// publishes a planned path.
+/**
+ * @class PathNode
+ *
+ * @brief Node that subscribes to a stereo depth image and a sun pose, and
+ * publishes a planned path.
+ */
 class PathNode : public rclcpp::Node {
 public:
-  /// @brief Constructor that initializes subscriptions and publishers.
-  PathNode() : Node("path_node") {
+  PathNode() : rclcpp::Node("path_node") {
     depth_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
         "/stereo/depth", 10,
         std::bind(&PathNode::onDepth, this, std::placeholders::_1));
@@ -28,17 +29,12 @@ public:
         std::bind(&PathNode::onSunPos, this, std::placeholders::_1));
 
     path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/path", 10);
-
-    timer_ =
-        this->create_wall_timer(std::chrono::milliseconds(100),
-                                std::bind(&PathNode::process_frames, this));
   }
 
 private:
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_sub_;
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr sun_pos_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr depth_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sun_pos_sub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
-  rclcpp::TimerBase::SharedPtr timer_;
 
   cv::Mat current_depth_map_; ///< Latest received depth image
   geometry_msgs::msg::PoseStamped::SharedPtr

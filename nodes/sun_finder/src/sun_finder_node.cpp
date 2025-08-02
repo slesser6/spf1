@@ -13,12 +13,6 @@
  */
 class SunFinderNode : public rclcpp::Node {
 public:
-  /**
-   * @brief Constructor for SunFinderNode.
-   *
-   * Initializes the publishers, subscribers, and camera parameters
-   *
-   */
   SunFinderNode() : Node("sun_finder_node") {
     depth_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
         "/stereo/depth", 10,
@@ -108,10 +102,10 @@ private:
     RCLCPP_DEBUG(this->get_logger(),
                  "Processing depth and brightness to find sunniest area.");
 
-    cv::rect sunniest_area = findSunniestArea(last_brightness_)
+    cv::rect sunniest_area = findSunniestArea(last_brightness_);
 
-        cv::Point sun_pos(sunniest_area.x + (WINDOW_SIZE / 2),
-                          sunniest_area.y + (WINDOW_SIZE / 2));
+    cv::Point sun_pos(sunniest_area.x + (WINDOW_SIZE / 2),
+                      sunniest_area.y + (WINDOW_SIZE / 2));
 
     float depth = last_depth_.at<float>(sun_pos);
 
@@ -181,7 +175,7 @@ private:
       }
     }
 
-    return cv::Rect(maxLoc.x, maxLoc.y, windowSize, windowSize);
+    return cv::Rect(maxLoc.x, maxLoc.y, WINDOW_SIZE, WINDOW_SIZE);
   }
 };
 

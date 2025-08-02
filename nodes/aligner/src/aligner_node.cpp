@@ -1,6 +1,7 @@
-#include <nav_msgs/msg/path.hpp>
-#include <sensor_msgs/msg/imu.hpp>
+#include "std_msgs/msg/string.hpp"
+#include <array>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/illuminance.hpp>
 
 #define FRONT_RIGHT 0
 #define FRONT_LEFT 1
@@ -17,20 +18,20 @@
 class AlignerNode : public rclcpp::Node {
 public:
   AlignerNode() : Node("aligner_node") {
-    path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/path", 10);
+    ctrl_pub_ =
+        this->create_publisher<std_msgs::msg::String>("/motor/control", 10);
 
     for (int i = 1; i <= 4; i++) {
       std::string topic = "/sensors/photo_" + std::to_string(i);
-      pr_subs_[i] = this->create_subscription<sensor_msgs::msg::Illuminance>(
-          topic, 10,
-          std::bind(&AlignerNode::align, this, std::placeholders::_1, i));
+      pr_subs_[i - 1] =
+          this->create_subscription<sensor_msgs::msg::Illuminance>(
+              topic, 10,
+              [this, i](const sensor_msgs::msg::Illuminance::SharedPtr msg) {
+                this->align(msg, i - 1);
+              });
     }
 
-    pr_vals_ = new double[4]{0};
-
-    timer_ = this->create_wall_timer(std::chrono::milliseconds(5000),
-                                     std::bind(&AlignerNode::align, this));
-
+    pr_vals_ = {0, 0, 0, 0};
     received_ = 0;
   }
 
@@ -44,40 +45,43 @@ private:
    * @param msg the Illuminance message.
    * @param num Which photoresistor.
    */
-  void align(const sensor_msgs::msg::Imu::SharedPtr msg, int num) {
+  void align(const sensor_msgs::msg::Illuminance::SharedPtr msg, int num) {
 
     received_ = received_ | (1 << num);
-    pr_vals_[num - 1] = msg.illuminance
+    pr_vals_[num] = msg->illuminance;
 
-                        if received_ == 30 {
-      auto path_msg = nav_msgs::msg::Path();
-
-      path_msg.header.stamp = this->get_clock()->now();
-      path_msg.header.frame_id = "map";
+    if (received_ == 0x0F) {
 
       double lr = pr_vals_[FRONT_RIGHT] + pr_vals_[BACK_RIGHT] -
                   pr_vals_[FRONT_LEFT] - pr_vals_[BACK_LEFT];
       double fb = pr_vals_[FRONT_RIGHT] + pr_vals_[FRONT_LEFT] -
                   pr_vals_[BACK_RIGHT] - pr_vals_[BACK_LEFT];
 
-      geometry_msgs::msg::PoseStamped pose;
-      pose.header = path_msg.header;
-      pose.pose.position.x = lr;
-      pose.pose.position.y = fb;
-      pose.pose.orientation.w = 1.0;
+      std_msgs::msg::String ctrl_msg;
 
-      path_msg.poses.push_back(pose);
-
-      path_pub_->publish(path_msg);
+      if (lr > fb) {
+        if (lr < 0) {
+          ctrl_msg.data = "L";
+        } else {
+          ctrl_msg.data = "R";
+        }
+      } else {
+        if (fb < 0) {
+          ctrl_msg.data = "B";
+        } else {
+          ctrl_msg.data = "F";
+        }
+      }
+      ctrl_pub_->publish(ctrl_msg);
       received_ = 0;
     }
   }
 
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
-  rclcpp::Subscriber<sensor_msgs::msg::Illuminance>::SharedPtr pr_subs_[4];
-  double pr_vals_[4];
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr ctrl_pub_;
+  std::array<rclcpp::Subscription<sensor_msgs::msg::Illuminance>::SharedPtr, 4>
+      pr_subs_;
+  std::array<double, 4> pr_vals_;
   uint8_t received_;
-  rclcpp::TimerBase::SharedPtr timer_;
 };
 
 /**

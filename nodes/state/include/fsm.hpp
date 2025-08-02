@@ -27,6 +27,6 @@ public:
 private:
     State current_state_;
     std::mutex mutex_;
-}
+};
 
 #endif

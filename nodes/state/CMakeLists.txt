@@ -8,7 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(lifecycle_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 # include header files
 include_directories(include)
@@ -17,7 +17,7 @@ add_executable(state_node src/state_node.cpp
                           src/fsm.cpp)
 
 target_link_libraries(state_node PUBLIC
-      ${lifecycle_msgs_TARGETS}
+      ${std_msgs_TARGETS}
       rclcpp::rclcpp
     )
 

@@ -9,16 +9,20 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
-find_package(image_transport REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 add_executable(stereo_node src/stereo_node.cpp)
 target_link_libraries(stereo_node PUBLIC
-      rclcpp::rclcpp
-      image_transport::image_transport
-      cv_bridge::cv_bridge
-      ${OpenCV_LIBS}
-    )
-include_directories(${OpenCV_INCLUDE_DIRS})
+  rclcpp::rclcpp
+  cv_bridge::cv_bridge
+  ${sensor_msgs_TARGETS}
+  ${OpenCV_LIBS}
+)
+
+include_directories(
+  ${OpenCV_INCLUDE_DIRS}
+  ${cv_bridge_INCLUDE_DIRS}
+)
 
 install(TARGETS
   stereo_node

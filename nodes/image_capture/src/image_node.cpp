@@ -55,13 +55,13 @@ private:
     header.frame_id = "camera_right_mono_frame";
     sensor_msgs::msg::Image::SharedPtr msg_m_r =
         cv_bridge::CvImage(header, "mono8", gray_r).toImageMsg();
-    cam_r_mono_pub_.publish(msg_m_r);
+    cam_r_mono_pub_->publish(*msg_m_r);
 
     cv::cvtColor(frame_l, gray_l, cv::COLOR_BGR2GRAY);
     header.frame_id = "camera_left_mono_frame";
     sensor_msgs::msg::Image::SharedPtr msg_m_l =
         cv_bridge::CvImage(header, "mono8", gray_l).toImageMsg();
-    cam_l_mono_pub_.publish(msg_m_l);
+    cam_l_mono_pub_->publish(*msg_m_l);
   }
 
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr cam_r_pub_, cam_l_pub_;

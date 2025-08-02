@@ -8,19 +8,23 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(cv_bridge REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
 
 add_executable(sun_finder_node src/sun_finder_node.cpp)
 target_link_libraries(sun_finder_node PUBLIC
-      ${OpenCV_LIBS}
-      ${sensor_msgs_TARGETS}
-      ${geometry_msgs_TARGETS}
-      rclcpp::rclcpp
-      cv_bridge::cv_bridge
-    )
-include_directories(${OpenCV_INCLUDE_DIRS})
+  rclcpp::rclcpp
+  cv_bridge::cv_bridge
+  ${OpenCV_LIBS}
+  ${sensor_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
+)
+
+include_directories(
+  ${OpenCV_INCLUDE_DIRS}
+  ${cv_bridge_INCLUDE_DIRS}
+)
 
 install(TARGETS
   sun_finder_node

@@ -20,7 +20,7 @@ void motorDriverInit() {
 
   softPwmCreate(PIN_L293D_RIGHT_EN, 0, 100);
   softPwmCreate(PIN_L293D_LEFT_EN, 0, 100);
-  motor_stop();
+  motorStop();
 }
 
 /**

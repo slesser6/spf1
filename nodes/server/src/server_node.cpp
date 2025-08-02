@@ -1,8 +1,10 @@
 #include "httplib.h"
 #include "rclcpp/rclcpp.hpp"
+#include "std_srvs/srv/set_bool.hpp"
 #include <nav_msgs/msg/path.hpp>
 #include <sensor_msgs/msg/illuminance.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/trigger.hpp>
 
 #include <iostream>
@@ -32,11 +34,6 @@ public:
     if (!server_client_->wait_for_service(std::chrono::seconds(5))) {
       RCLCPP_WARN(this->get_logger(),
                   "Service /server not available. Proceeding anyway.");
-    }
-    state_client_ = node->create_client<std_srvs::srv::SetString>("/state/set");
-    if (!state_client_->wait_for_service(std::chrono::seconds(5))) {
-      RCLCPP_WARN(this->get_logger(),
-                  "Service /state/set not available. Proceeding anyway.");
     }
 
     // Subscribe to topics
@@ -100,6 +97,12 @@ public:
           latest_values_["/path"] = ss.str();
         });
 
+    // Publisher to topics
+    state_pub_ =
+        this->create_publisher<std_msgs::msg::String>("/state/set", 10);
+    ctrl_pub_ =
+        this->create_publisher<std_msgs::msg::String>("/motor/control", 10);
+
     // Launch the HTTP server in a background thread
     server_thread_ = std::thread([this]() { this->startServer(); });
   }
@@ -118,7 +121,8 @@ private:
   std::unordered_map<std::string, std::string> latest_values_;
   std::mutex data_mutex_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr server_client_;
-  rclcpp::Client<std_srvs::srv::SetString>::SharedPtr state_client_;
+  std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>> state_pub_;
+  std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>> ctrl_pub_;
   std::shared_ptr<rclcpp::Subscription<std_msgs::msg::String>> state_sub_;
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Imu>> imu_sub_;
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Illuminance>> pr1_sub_;
@@ -161,52 +165,71 @@ private:
       html += "</body></html>";
       res.set_content(html, "text/html");
     });
-    server_.Get(
-        "/init", [this](const httplib::Request &, httplib::Response &res) {
-          auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-          request->data = "INIT" client->async_send_request(request);
-          res.set_redirect("/");
-        });
-    server_.Get(
-        "/navigate", [this](const httplib::Request &, httplib::Response &res) {
-          auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-          request->data = "NAV" client->async_send_request(request);
-          res.set_redirect("/");
-        });
-    server_.Get(
-        "/align", [this](const httplib::Request &, httplib::Response &res) {
-          auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-          request->data = "ALIGN" client->async_send_request(request);
-          res.set_redirect("/");
-        });
+    server_.Get("/init",
+                [this](const httplib::Request &, httplib::Response &res) {
+                  std_msgs::msg::String state_msg;
+                  state_msg.data = "INIT";
+                  state_pub_->publish(state_msg);
+                  res.set_redirect("/");
+                });
+    server_.Get("/navigate",
+                [this](const httplib::Request &, httplib::Response &res) {
+                  std_msgs::msg::String state_msg;
+                  state_msg.data = "NAV";
+                  state_pub_->publish(state_msg);
+                  res.set_redirect("/");
+                });
+    server_.Get("/align",
+                [this](const httplib::Request &, httplib::Response &res) {
+                  std_msgs::msg::String state_msg;
+                  state_msg.data = "ALIGN";
+                  state_pub_->publish(state_msg);
+                  res.set_redirect("/");
+                });
     server_.Get("/forwards",
                 [this](const httplib::Request &, httplib::Response &res) {
-                  res.set_redirect("/");
+                  std_msgs::msg::String ctrl_msg;
+                  ctrl_msg.data = "F";
+                  ctrl_pub_->publish(ctrl_msg);
                 });
     server_.Get("/backwards",
                 [this](const httplib::Request &, httplib::Response &res) {
-                  res.set_redirect("/");
+                  std_msgs::msg::String ctrl_msg;
+                  ctrl_msg.data = "B";
+                  ctrl_pub_->publish(ctrl_msg);
                 });
     server_.Get("/left",
                 [this](const httplib::Request &, httplib::Response &res) {
-                  res.set_redirect("/");
+                  std_msgs::msg::String ctrl_msg;
+                  ctrl_msg.data = "L";
+                  ctrl_pub_->publish(ctrl_msg);
                 });
     server_.Get("/right",
                 [this](const httplib::Request &, httplib::Response &res) {
-                  res.set_redirect("/");
+                  std_msgs::msg::String ctrl_msg;
+                  ctrl_msg.data = "R";
+                  ctrl_pub_->publish(ctrl_msg);
                 });
-    server_.Get("/stop_control",
+    server_.Get("/stop",
                 [this](const httplib::Request &, httplib::Response &res) {
-                  res.set_redirect("/");
+                  std_msgs::msg::String ctrl_msg;
+                  ctrl_msg.data = "S";
+                  ctrl_pub_->publish(ctrl_msg);
                 });
-    server_.Get(
-        "/control", [this](const httplib::Request &, httplib::Response &res) {
-          std::string html = "<html><body><h1>User Control</h1><ul>";
-          for (const auto &[topic, value] : latest_values_) {
-            html += "<li><b>" + topic + ":</b> " + value + "</li>";
-          }
-          html += "</ul>";
-          html += R"(
+    server_.Get("/quit_control",
+                [this](const httplib::Request &, httplib::Response &res) {
+                  std_msgs::msg::String ctrl_msg;
+                  ctrl_msg.data = "S";
+                  ctrl_pub_->publish(ctrl_msg);
+                });
+    server_.Get("/control",
+                [this](const httplib::Request &, httplib::Response &res) {
+                  std::string html = "<html><body><h1>User Control</h1><ul>";
+                  for (const auto &[topic, value] : latest_values_) {
+                    html += "<li><b>" + topic + ":</b> " + value + "</li>";
+                  }
+                  html += "</ul>";
+                  html += R"(
                 <form action="/forwards" method="get">
                     <button type="submit">Forward</button>
                 </form>
@@ -219,16 +242,19 @@ private:
                 <form action="/right" method="get">
                     <button type="submit">Right</button>
                 </form>
-                <form action="/stop_control" method="get">
-                    <button type="submit">Stop User Control</button>
+                <form action="/stop" method="get">
+                    <button type="submit">Stop</button>
+                </form>
+                <form action="/quit_control" method="get">
+                    <button type="submit">Quit User Control</button>
                 </form>
             )";
-          html += "</body></html>";
-          res.set_content(html, "text/html");
-          auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
-          request->data = "CTRL" client->async_send_request(request);
-          res.set_redirect("/");
-        });
+                  html += "</body></html>";
+                  res.set_content(html, "text/html");
+                  std_msgs::msg::String state_msg;
+                  state_msg.data = "CTRL";
+                  state_pub_->publish(state_msg);
+                });
 
     RCLCPP_INFO(this->get_logger(),
                 "HTTP server listening on http://0.0.0.0:8080");

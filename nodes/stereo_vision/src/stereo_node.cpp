@@ -6,68 +6,63 @@
 class StereoNode : public rclcpp::Node {
 public:
   StereoNode()
-      : Node("stereo_node"), cam_l_received_(false), cam_r_received_(false) {
+      : Node("stereo_node"), cam_r_received_(false), cam_l_received_(false) {
     cam_r_sub_ = create_subscription<sensor_msgs::msg::Image>(
         "/camera/right/image_raw", 10,
-        std::bind(&StereoNode::on_cam_r, this, std::placeholders::_1));
+        std::bind(&StereoNode::onCamR, this, std::placeholders::_1));
     cam_l_sub_ = create_subscription<sensor_msgs::msg::Image>(
         "/camera/left/image_raw", 10,
-        std::bind(&StereoNode::on_cam_l, this, std::placeholders::_2));
+        std::bind(&StereoNode::onCamL, this, std::placeholders::_1));
 
     depth_pub_ = create_publisher<sensor_msgs::msg::Image>("/stereo/depth", 10);
 
-    timer_ =
-        this->create_wall_timer(std::chrono::milliseconds(1000),
-                                std::bind(&StereoNode::control_loop, this));
+    timer_ = this->create_wall_timer(std::chrono::milliseconds(1000),
+                                     std::bind(&StereoNode::controlLoop, this));
   }
 
 private:
-  void on_cam_r(const sensor_msgs::msg::Image::SharedPtr msg) {
-    if (!msg->data.data().empty()) {
-      current_r_ = msg cam_r_received_ = true;
+  void onCamR(const sensor_msgs::msg::Image::SharedPtr msg) {
+    if (!msg->data.empty()) {
+      current_r_ = msg;
+      cam_r_received_ = true;
     }
   }
 
-  void on_cam_l(const sensor_msgs::msg::Image::SharedPtr msg) {
-    if (!msg->data.data().empty()) {
-      current_l_ = msg cam_l_received_ = true;
+  void onCamL(const sensor_msgs::msg::Image::SharedPtr msg) {
+    if (!msg->data.empty()) {
+      current_l_ = msg;
+      cam_l_received_ = true;
     }
   }
 
-  void control_loop() {
-    if (!cap_l_received_ || !cap_r_received_) {
+  void controlLoop() {
+    if (!cam_l_received_ || !cam_r_received_) {
       RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
                            "Waiting for inputs...");
       return;
     }
 
-    int width_r = current_r_->width;
-    int height_r = current_r_->height;
-    std::string encoding_r = current_r_->encoding;
-    const uint8_t *data_r = current_r_->data.data();
-
-    int width_r = current_l_->width;
-    int height_r = current_l_->height;
-    std::string encoding_l = current_l_->encoding;
-    const uint8_t *data_l = current_l_->data.data();
-
     cv::Ptr<cv::StereoBM> stereo = cv::StereoBM::create();
     cv::Mat disparity;
-    stereo->compute(data_l, data_r, disparity);
+
+    cv::Mat img_l = cv_bridge::toCvCopy(current_l_, "mono8")->image;
+    cv::Mat img_r = cv_bridge::toCvCopy(current_r_, "mono8")->image;
+    stereo->compute(img_l, img_r, disparity);
 
     std_msgs::msg::Header header;
     header.stamp = this->get_clock()->now();
     header.frame_id = "camera_depth_frame";
-    sensor_msgs::msg::Image::SharedPtr disparity_msg =
+    sensor_msgs::msg::Image::SharedPtr img_msg =
         cv_bridge::CvImage(header, "16SC1", disparity).toImageMsg();
-    depth_pub_->publish(disparity_msg);
+    depth_pub_->publish(*img_msg);
 
-    cap_l_received_ = false;
-    cap_r_received_ = false;
+    cam_l_received_ = false;
+    cam_r_received_ = false;
   }
   bool cam_r_received_, cam_l_received_;
   sensor_msgs::msg::Image::SharedPtr current_r_, current_l_;
-  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr cam_r_sub, cam_l_sub;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr cam_r_sub_,
+      cam_l_sub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 };

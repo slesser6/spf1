@@ -7,11 +7,13 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 add_executable(aligner_node src/aligner_node.cpp)
 target_link_libraries(aligner_node PUBLIC
-      ${nav_msgs_TARGETS}
+      ${sensor_msgs_TARGETS}
+      ${std_msgs_TARGETS}
       rclcpp::rclcpp
     )
 include_directories(${OpenCV_INCLUDE_DIRS})
