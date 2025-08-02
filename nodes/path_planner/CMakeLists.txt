@@ -5,16 +5,19 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter)
 endif()
 
-# find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
 
 add_executable(path_node src/path_node.cpp)
 target_link_libraries(path_node PUBLIC
       ${nav_msgs_TARGETS}
+      ${sensor_msgs_TARGETS}
       rclcpp::rclcpp
+      cv_bridge::cv_bridge
       ${OpenCV_LIBS}
     )
 include_directories(${OpenCV_INCLUDE_DIRS})

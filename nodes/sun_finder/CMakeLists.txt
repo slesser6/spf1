@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(motor_controller)
+project(sun_finder)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter)
@@ -7,26 +7,23 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(OpenCV REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
-find_package(std_srvs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
 
-include_directories(include)
-
-add_executable(motor_node src/motor_node.cpp
-                          src/motor_driver.cpp
-                          src/pid.cpp)
-
-target_link_libraries(motor_node PUBLIC
-      ${std_srvs_TARGETS}
-      ${nav_msgs_TARGETS}
+add_executable(sun_finder_node src/sun_finder_node.cpp)
+target_link_libraries(sun_finder_node PUBLIC
+      ${OpenCV_LIBS}
       ${sensor_msgs_TARGETS}
-      wiringPi
+      ${geometry_msgs_TARGETS}
       rclcpp::rclcpp
+      cv_bridge::cv_bridge
     )
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 install(TARGETS
-  motor_node
+  sun_finder_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

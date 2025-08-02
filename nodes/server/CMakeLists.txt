@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(status)
+project(server)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter)
@@ -15,8 +15,8 @@ find_package(std_srvs REQUIRED)
 # include headers
 include_directories(include)
 
-add_executable(status_node src/status_node.cpp)
-target_link_libraries(status_node PUBLIC
+add_executable(server_node src/server_node.cpp)
+target_link_libraries(server_node PUBLIC
       rclcpp::rclcpp
       ${std_srvs_TARGETS}
       ${nav_msgs_TARGETS}
@@ -24,7 +24,7 @@ target_link_libraries(status_node PUBLIC
     )
 
 install(TARGETS
-  status_node
+  server_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

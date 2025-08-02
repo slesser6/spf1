@@ -47,39 +47,39 @@
  *
  * Configures GPIO pins as outputs and initializes PWM if needed.
  */
-void motor_driver_init();
+void motorDriverInit();
 
 /**
  * @brief Drive the motors forward at the specified speed.
  *
  * @param speed Speed value (typically 0-100).
  */
-void motor_drive_forward(int speed);
+void motorDriveForward(int speed);
 
 /**
  * @brief Drive the motors backward at the specified speed.
  *
  * @param speed Speed value (typically 0-100).
  */
-void motor_drive_backward(int speed);
+void motorDriveBackward(int speed);
 
 /**
  * @brief Turn the robot left by controlling motor speeds.
  *
  * @param speed Speed value (typically 0-100).
  */
-void motor_turn_left(int speed);
+void motorTurnLeft(int speed);
 
 /**
  * @brief Turn the robot right by controlling motor speeds.
  *
  * @param speed Speed value (typically 0-100).
  */
-void motor_turn_right(int speed);
+void motorTurnRight(int speed);
 
 /**
  * @brief Stop all motor movement.
  */
-void motor_stop();
+void motorStop();
 
 #endif

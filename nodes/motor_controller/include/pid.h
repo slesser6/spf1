@@ -47,7 +47,7 @@ typedef struct {
  * @param dt Time difference in seconds since last update.
  * @return float Control output value.
  */
-float pid_compute(PIDController *pid, float setpoint, float measured, float dt);
+float pidCompute(PIDController *pid, float setpoint, float measured, float dt);
 
 /**
  * @brief Clamp a speed value to valid range [0, MAX_SPEED].
@@ -57,6 +57,6 @@ float pid_compute(PIDController *pid, float setpoint, float measured, float dt);
  * @param speed Input speed value.
  * @return int Clamped speed as integer.
  */
-int clamp_speed(float speed);
+int clampSpeed(float speed);
 
 #endif
