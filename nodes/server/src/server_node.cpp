@@ -1,8 +1,11 @@
 #include "httplib.h"
 #include "rclcpp/rclcpp.hpp"
 #include "std_srvs/srv/set_bool.hpp"
+#include <cv_bridge/cv_bridge.hpp>
 #include <nav_msgs/msg/path.hpp>
+#include <opencv2/opencv.hpp>
 #include <sensor_msgs/msg/illuminance.hpp>
+#include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/trigger.hpp>
@@ -41,6 +44,30 @@ public:
         "/state/get", 10, [this](std_msgs::msg::String::SharedPtr msg) {
           std::lock_guard<std::mutex> lock(data_mutex_);
           latest_values_["/state/get"] = msg->data;
+        });
+    image_r_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+        "/camera/right/image_raw", 10,
+        [this](const sensor_msgs::msg::Image::SharedPtr msg) {
+          try {
+            cv::Mat image = cv_bridge::toCvCopy(msg, "bgr8")->image;
+            std::lock_guard<std::mutex> lock(image_mutex_);
+            latest_image_r_ = image.clone();
+          } catch (const cv_bridge::Exception &e) {
+            RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s",
+                         e.what());
+          }
+        });
+    image_l_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+        "/camera/left/image_raw", 10,
+        [this](const sensor_msgs::msg::Image::SharedPtr msg) {
+          try {
+            cv::Mat image = cv_bridge::toCvCopy(msg, "bgr8")->image;
+            std::lock_guard<std::mutex> lock(image_mutex_);
+            latest_image_l_ = image.clone();
+          } catch (const cv_bridge::Exception &e) {
+            RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s",
+                         e.what());
+          }
         });
     imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
         "/sensors/imu", 10, [this](sensor_msgs::msg::Imu::SharedPtr msg) {
@@ -119,7 +146,9 @@ public:
 
 private:
   std::unordered_map<std::string, std::string> latest_values_;
+  cv::Mat latest_image_r_, latest_image_l_;
   std::mutex data_mutex_;
+  std::mutex image_mutex_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr server_client_;
   std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>> state_pub_;
   std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>> ctrl_pub_;
@@ -130,6 +159,8 @@ private:
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Illuminance>> pr3_sub_;
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Illuminance>> pr4_sub_;
   std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Path>> path_sub_;
+  std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Image>> image_r_sub_;
+  std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Image>> image_l_sub_;
   httplib::Server server_;
   std::thread server_thread_;
 
@@ -141,28 +172,52 @@ private:
    */
   void startServer() {
     server_.Get("/", [this](const httplib::Request &, httplib::Response &res) {
-      RCLCPP_INFO(this->get_logger(), "Received HTTP request");
       std::lock_guard<std::mutex> lock(data_mutex_);
-      std::string html = "<html><body><h1>ROS 2 Topic Monitor</h1><ul>";
+      std::string html = R"(
+<html>
+<head>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; padding: 30px; }
+  ul { text-align: left; display: inline-block; margin: 20px auto; }
+  button {
+    margin: 10px;
+    font-size: 18px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    border: none;
+    background-color: #2196F3;
+    color: white;
+    cursor: pointer;
+  }
+  button:hover {
+    background-color: #0b7dda;
+  }
+</style>
+</head>
+<body>
+<h1>Solar Positioning Friend</h1>
+<ul>
+)";
       for (const auto &[topic, value] : latest_values_) {
         html += "<li><b>" + topic + ":</b> " + value + "</li>";
       }
-      html += "</ul>";
       html += R"(
-                <form action="/init" method="get">
-                    <button type="submit">Initialize</button>
-                </form>
-                <form action="/navigate" method="get">
-                    <button type="submit">Navigate</button>
-                </form>
-                <form action="/align" method="get">
-                    <button type="submit">Align</button>
-                </form>
-                <form action="/control" method="get">
-                    <button type="submit">User Control</button>
-                </form>
-            )";
-      html += "</body></html>";
+</ul>
+<form action="/init" method="get">
+  <button type="submit">Initialize</button>
+</form>
+<form action="/navigate" method="get">
+  <button type="submit">Navigate</button>
+</form>
+<form action="/align" method="get">
+  <button type="submit">Align</button>
+</form>
+<form action="/control" method="get">
+  <button type="submit">User Control</button>
+</form>
+</body>
+</html>
+)";
       res.set_content(html, "text/html");
     });
     server_.Get("/init",
@@ -191,69 +246,131 @@ private:
                   std_msgs::msg::String ctrl_msg;
                   ctrl_msg.data = "F";
                   ctrl_pub_->publish(ctrl_msg);
+                  res.set_redirect("/control");
                 });
     server_.Get("/backwards",
                 [this](const httplib::Request &, httplib::Response &res) {
                   std_msgs::msg::String ctrl_msg;
                   ctrl_msg.data = "B";
                   ctrl_pub_->publish(ctrl_msg);
+                  res.set_redirect("/control");
                 });
     server_.Get("/left",
                 [this](const httplib::Request &, httplib::Response &res) {
                   std_msgs::msg::String ctrl_msg;
                   ctrl_msg.data = "L";
                   ctrl_pub_->publish(ctrl_msg);
+                  res.set_redirect("/control");
                 });
     server_.Get("/right",
                 [this](const httplib::Request &, httplib::Response &res) {
                   std_msgs::msg::String ctrl_msg;
                   ctrl_msg.data = "R";
                   ctrl_pub_->publish(ctrl_msg);
+                  res.set_redirect("/control");
                 });
     server_.Get("/stop",
                 [this](const httplib::Request &, httplib::Response &res) {
                   std_msgs::msg::String ctrl_msg;
                   ctrl_msg.data = "S";
                   ctrl_pub_->publish(ctrl_msg);
+                  res.set_redirect("/control");
                 });
     server_.Get("/quit_control",
                 [this](const httplib::Request &, httplib::Response &res) {
                   std_msgs::msg::String ctrl_msg;
                   ctrl_msg.data = "S";
                   ctrl_pub_->publish(ctrl_msg);
+                  res.set_redirect("/");
                 });
     server_.Get("/control",
                 [this](const httplib::Request &, httplib::Response &res) {
-                  std::string html = "<html><body><h1>User Control</h1><ul>";
-                  for (const auto &[topic, value] : latest_values_) {
-                    html += "<li><b>" + topic + ":</b> " + value + "</li>";
-                  }
-                  html += "</ul>";
-                  html += R"(
-                <form action="/forwards" method="get">
-                    <button type="submit">Forward</button>
-                </form>
-                <form action="/backwards" method="get">
-                    <button type="submit">Backward</button>
-                </form>
-                <form action="/left" method="get">
-                    <button type="submit">Left</button>
-                </form>
-                <form action="/right" method="get">
-                    <button type="submit">Right</button>
-                </form>
-                <form action="/stop" method="get">
-                    <button type="submit">Stop</button>
-                </form>
-                <form action="/quit_control" method="get">
-                    <button type="submit">Quit User Control</button>
-                </form>
-            )";
-                  html += "</body></html>";
+                  std::string html = R"(
+<html>
+<head>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; padding: 30px; }
+  .button-grid { display: inline-grid; grid-template-columns: auto auto auto; gap: 10px; margin-top: 20px; }
+  .button-grid form button {
+    font-size: 24px;
+    padding: 20px;
+    width: 100px;
+    height: 100px;
+    border-radius: 12px;
+    border: none;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+  }
+  .button-grid form button:hover {
+    background-color: #45a049;
+  }
+  .row { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+<h1>User Control</h1>
+<div class="button-grid">
+  <div class="row">
+    <form action="/forwards" method="get">
+      <button type="submit">&#x2B06;</button>
+    </form>
+  </div>
+  <div class="row">
+    <form action="/left" method="get">
+      <button type="submit">&#x2B05;</button>
+    </form>
+    <form action="/stop" method="get">
+      <button type="submit">&#x23F9;</button>
+    </form>
+    <form action="/right" method="get">
+      <button type="submit">&#x27A1;</button>
+    </form>
+  </div>
+  <div class="row">
+    <form action="/backwards" method="get">
+      <button type="submit">&#x2B07;</button>
+    </form>
+  </div>
+</div>
+<br>
+<form action="/quit_control" method="get">
+  <button type="submit" style="margin-top: 20px; font-size: 18px; padding: 10px 20px;">Quit User Control</button>
+</form>
+</body>
+</html>
+)";
                   res.set_content(html, "text/html");
                   std_msgs::msg::String state_msg;
                   state_msg.data = "CTRL";
                   state_pub_->publish(state_msg);
+                });
+    server_.Get("/camera_r.jpg",
+                [this](const httplib::Request &, httplib::Response &res) {
+                  std::lock_guard<std::mutex> lock(image_mutex_);
+                  if (!latest_image_r_.empty()) {
+                    std::vector<uchar> buf;
+                    cv::imencode(".jpg", latest_image_r_, buf);
+                    res.set_content(reinterpret_cast<const char *>(buf.data()),
+                                    buf.size(), "image/jpeg");
+                  } else {
+                    res.status = 404;
+                    res.set_content("No image available", "text/plain");
+                  }
+                });
+    server_.Get("/camera_l.jpg",
+                [this](const httplib::Request &, httplib::Response &res) {
+                  std::lock_guard<std::mutex> lock(image_mutex_);
+                  if (!latest_image_l_.empty()) {
+                    std::vector<uchar> buf;
+                    cv::imencode(".jpg", latest_image_l_, buf);
+                    res.set_content(reinterpret_cast<const char *>(buf.data()),
+                                    buf.size(), "image/jpeg");
+                  } else {
+                    res.status = 404;
+                    res.set_content("No image available", "text/plain");
+                  }
                 });
 
     RCLCPP_INFO(this->get_logger(),
