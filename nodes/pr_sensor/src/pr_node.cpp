@@ -13,21 +13,12 @@
  * @brief ROS 2 node that subscribes to MQTT topics for photoresistor sensors
  * and publishes ROS Illuminance messages.
  *
- * This node connects to an MQTT broker, subscribes to photoresistor sensor
- * topics, and republishes the received illuminance values as ROS messages on
- * corresponding topics.
+ * This node connects to an MQTT broker with the mosquitto library, subscribes
+ * to photoresistor sensor topics, and republishes the received illuminance
+ * values as ROS messages on corresponding topics.
  */
 class PRNode : public rclcpp::Node {
 public:
-  /**
-   * @brief Constructor for PRNode.
-   *
-   * Initializes the Mosquitto library and MQTT client, connects to the broker,
-   * creates ROS publishers for four photoresistor sensors, and starts the MQTT
-   * loop in a background thread.
-   *
-   * @throws std::runtime_error if MQTT client creation or connection fails.
-   */
   PRNode() : Node("pr_node") {
 
     // Set up mosquitto for mqtt
@@ -53,19 +44,21 @@ public:
 
     // Start MQTT loop in background thread
     mosquitto_loop_start(mqtt_);
+
+    RCLCPP_INFO(this->get_logger(), "PRNode started");
   }
 
-  /**
-   * @brief Destructor for PRNode.
-   *
-   * Stops the MQTT loop, destroys the MQTT client, and cleans up Mosquitto
-   * library.
-   */
   ~PRNode() {
     mosquitto_loop_stop(mqtt_, true);
     mosquitto_destroy(mqtt_);
     mosquitto_lib_cleanup();
   }
+
+private:
+  struct mosquitto *mqtt_;
+  std::unordered_map<
+      std::string, rclcpp::Publisher<sensor_msgs::msg::Illuminance>::SharedPtr>
+      publishers_;
 
   /**
    * @brief Handles incoming MQTT messages by parsing and publishing as ROS
@@ -96,7 +89,6 @@ public:
     }
   }
 
-private:
   /**
    * @brief Callback called when MQTT connection is established.
    *
@@ -137,11 +129,6 @@ private:
                         message->payloadlen);
     static_cast<PRNode *>(obj)->handleMessage(topic, payload);
   }
-
-  struct mosquitto *mqtt_;
-  std::unordered_map<
-      std::string, rclcpp::Publisher<sensor_msgs::msg::Illuminance>::SharedPtr>
-      publishers_;
 };
 
 /**

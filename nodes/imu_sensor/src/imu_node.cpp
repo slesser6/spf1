@@ -17,27 +17,19 @@ using namespace std::chrono_literals;
 #define PI_DEG 180.0f
 #define GYRO_SENSITIVITY 131.0f    // assuming 131 LSB/(°/s)
 #define ACCEL_SENSITIVITY 16384.0f // assuming default sensitivity 16384 LSB/g
-#define SAMPLE_FREQ 100.0f         // Hz
+#define SAMPLE_FREQ 10.0f          // Hz
 
 /**
  * @class ImuNode
  * @brief ROS 2 node that reads data from MPU6050 IMU sensor via I2C and
- * publishes it as sensor_msgs::msg::Imu.
+ * publishes it as a sensor_msgs::msg::Imu message.
  *
  * This node opens an I2C connection to the MPU6050 sensor, reads accelerometer
- * and gyroscope data periodically, converts the raw readings to SI units, and
+ * and gyroscope data every 100ms, converts the raw readings to SI units, and
  * publishes the data on the "/sensors/imu" topic.
  */
 class ImuNode : public rclcpp::Node {
 public:
-  /**
-   * @brief Constructor for ImuNode.
-   *
-   * Opens the I2C device, configures the MPU6050 sensor, sets up a publisher
-   * and timer to publish IMU data every 100 milliseconds.
-   *
-   * @throws std::runtime_error if opening or configuring the I2C device fails.
-   */
   ImuNode() : Node("imu_node") {
     filter_.begin(SAMPLE_FREQ);
 
@@ -46,7 +38,7 @@ public:
     timer_ = this->create_wall_timer(100ms,
                                      std::bind(&ImuNode::publishImuData, this));
 
-    // Open I2C
+    // Open the I2C connection
     const char *device = "/dev/i2c-1";
     i2c_file_ = open(device, O_RDWR);
     if (i2c_file_ < 0) {
@@ -70,14 +62,12 @@ public:
     // Wake up MPU6050
     char config[2] = {PWR_MGMT_1, 0};
     write(i2c_file_, config, 2);
+
+    RCLCPP_INFO(get_logger(), "ImuNode started");
   }
 
-  /**
-   * @brief Destructor for ImuNode.
-   *
-   * Closes the I2C device file descriptor if open.
-   */
   ~ImuNode() {
+    // close the I2C connection
     if (i2c_file_ >= 0)
       close(i2c_file_);
   }

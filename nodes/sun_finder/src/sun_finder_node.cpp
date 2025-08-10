@@ -32,7 +32,7 @@ public:
     cx_ = 319.5; // Principal point x
     cy_ = 239.5; // Principal point y
 
-    RCLCPP_DEBUG(this->get_logger(), "SunFinder initialized.");
+    RCLCPP_INFO(this->get_logger(), "SunFinder started");
   }
 
 private:

@@ -1,6 +1,3 @@
-/// @file stereo_path_planner_node.cpp
-/// @brief ROS 2 node for path planning using stereo depth image and sun pose.
-
 #include <cv_bridge/cv_bridge.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/path.hpp>
@@ -29,6 +26,7 @@ public:
         std::bind(&PathNode::onSunPos, this, std::placeholders::_1));
 
     path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/path", 10);
+    RCLCPP_INFO(get_logger(), "PathNode started");
   }
 
 private:
@@ -36,12 +34,13 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sun_pos_sub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
 
-  cv::Mat current_depth_map_; ///< Latest received depth image
-  geometry_msgs::msg::PoseStamped::SharedPtr
-      current_sun_pos_; ///< Latest received sun pos
+  cv::Mat current_depth_map_;
+  geometry_msgs::msg::PoseStamped::SharedPtr current_sun_pos_;
 
-  /// @brief Callback for receiving depth images.
-  /// @param msg Incoming depth image message.
+  /**
+   * @brief Callback for receiving depth images.
+   * @param msg Incoming depth image message.
+   **/
   void onDepth(const sensor_msgs::msg::Image::SharedPtr msg) {
     try {
       cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding);
@@ -54,18 +53,20 @@ private:
       RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
     }
   }
-
-  /// @brief Callback for receiving sun position messages.
-  /// @param msg Incoming sun pos message.
+  /**
+   * @brief Callback for receiving sun position messages.
+   * @param msg Incoming sun pos message.
+   **/
   void onSunPos(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
     current_sun_pos_ = msg;
     if (!current_depth_map_.empty()) {
       computePath(*msg);
     }
   }
-
-  /// @brief Computes and publishes a path using A* algorithm.
-  /// @param goal The target pose to plan a path to.
+  /**
+   * @brief Computes and publishes a path using A* algorithm.
+   * @param goal The target pose to plan a path to.
+   **/
   void computePath(const geometry_msgs::msg::PoseStamped &goal) {
     const int rows = current_depth_map_.rows;
     const int cols = current_depth_map_.cols;
@@ -78,8 +79,8 @@ private:
       }
     }
 
-    int start_x = cols / 2; ///< Starting x-coordinate (center)
-    int start_y = rows - 1; ///< Starting y-coordinate (bottom)
+    int start_x = cols / 2; // Starting x-coordinate(center)
+    int start_y = rows - 1; // Starting y-coordinate(bottom)
 
     int goal_x =
         std::clamp(static_cast<int>(goal.pose.position.x), 0, cols - 1);
@@ -89,9 +90,10 @@ private:
     auto path_pixels = a_star(grid, start_x, start_y, goal_x, goal_y);
     publishPath(path_pixels);
   }
-
-  /// @struct Node
-  /// @brief Represents a cell in the A* search.
+  /**
+   * @struct Node
+   * @brief Represents a cell in the A* search.
+   **/
   struct Node {
     int x, y;
     float cost, priority;
@@ -100,19 +102,25 @@ private:
       return priority > other.priority;
     }
   };
-
-  /// @brief Heuristic function for A* (Euclidean distance).
+  /**
+   * @brief Heuristic function for A* (Euclidean distance).
+   * @param x1 x.
+   * @param y1 y.
+   * @param x2 Goal x.
+   * @param y2 Goal y.
+   **/
   float heuristic(int x1, int y1, int x2, int y2) {
     return std::hypot(x1 - x2, y1 - y2);
   }
-
-  /// @brief A* pathfinding algorithm.
-  /// @param grid Binary occupancy grid.
-  /// @param sx Start x.
-  /// @param sy Start y.
-  /// @param gx Goal x.
-  /// @param gy Goal y.
-  /// @return List of coordinates (x,y) for the path.
+  /**
+   * @brief A* pathfinding algorithm.
+   * @param grid Binary occupancy grid.
+   * @param sx Start x.
+   * @param sy Start y.
+   * @param gx Goal x.
+   * @param gy Goal y.
+   * @return List of coordinates (x,y) for the path.
+   **/
   std::vector<std::pair<int, int>>
   a_star(const std::vector<std::vector<int>> &grid, int sx, int sy, int gx,
          int gy) {
@@ -153,9 +161,10 @@ private:
 
     return {};
   }
-
-  /// @brief Publishes the computed path as a nav_msgs::msg::Path message.
-  /// @param pixels List of (x,y) pixel coordinates on the image.
+  /**
+   * @brief Publishes the computed path as a nav_msgs::msg::Path message.
+   * @param pixels List of (x,y) pixel coordinates on the image.
+   **/
   void publishPath(const std::vector<std::pair<int, int>> &pixels) {
     nav_msgs::msg::Path path_msg;
     path_msg.header.stamp = this->get_clock()->now();
@@ -175,6 +184,15 @@ private:
   }
 };
 
+/**
+ * @brief Main function for the path node.
+ *
+ * Initializes ROS 2, creates the PathNode, spins it, and shuts down ROS 2.
+ *
+ * @param argc Argument count from command line.
+ * @param argv Argument vector from command line.
+ * @return int Exit status code.
+ */
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<PathNode>());

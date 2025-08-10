@@ -15,12 +15,18 @@
 #include <thread>
 #include <unordered_map>
 
+<<<<<<< HEAD
+=======
+#define NUM_DISPARITIES 15
+
+>>>>>>> dev
 /**
  * @class ServerNode
  * @brief A ROS 2 node that subscribes to topics and serves their latest values
  * via an HTTP web server.
  *
  * This node listens to selected ROS 2 topics, stores the latest messages,
+<<<<<<< HEAD
  * and runs an HTTP server that displays these values in a browser.
  */
 class ServerNode : public rclcpp::Node {
@@ -31,6 +37,13 @@ public:
    * Sets up ROS 2 subscriptions and starts the HTTP server on a separate
    * thread.
    */
+=======
+ * and runs an HTTP server that displays these values in a browser. Also adds
+ * in the ability for user input control messages from the browser.
+ */
+class ServerNode : public rclcpp::Node {
+public:
+>>>>>>> dev
   ServerNode() : Node("server_node") {
     // Subscribe to services
     server_client_ = this->create_client<std_srvs::srv::Trigger>("/server");
@@ -69,6 +82,23 @@ public:
                          e.what());
           }
         });
+<<<<<<< HEAD
+=======
+    depth_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+        "/stereo/depth", 10,
+        [this](const sensor_msgs::msg::Image::SharedPtr msg) {
+          try {
+            cv::Mat image_disp8, image;
+            image = cv_bridge::toCvCopy(msg, "16SC1")->image;
+            std::lock_guard<std::mutex> lock(image_mutex_);
+            image.convertTo(image_disp8, CV_8U, 255.0 / NUM_DISPARITIES);
+            latest_depth_ = image_disp8.clone();
+          } catch (const cv_bridge::Exception &e) {
+            RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s",
+                         e.what());
+          }
+        });
+>>>>>>> dev
     imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
         "/sensors/imu", 10, [this](sensor_msgs::msg::Imu::SharedPtr msg) {
           std::lock_guard<std::mutex> lock(data_mutex_);
@@ -132,11 +162,18 @@ public:
 
     // Launch the HTTP server in a background thread
     server_thread_ = std::thread([this]() { this->startServer(); });
+<<<<<<< HEAD
   }
 
   /**
    * @brief Destructor. Stops the HTTP server and joins the server thread.
    */
+=======
+
+    RCLCPP_INFO(this->get_logger(), "ServerNode started");
+  }
+
+>>>>>>> dev
   ~ServerNode() {
     server_.stop();
     if (server_thread_.joinable()) {
@@ -146,7 +183,11 @@ public:
 
 private:
   std::unordered_map<std::string, std::string> latest_values_;
+<<<<<<< HEAD
   cv::Mat latest_image_r_, latest_image_l_;
+=======
+  cv::Mat latest_image_r_, latest_image_l_, latest_depth_;
+>>>>>>> dev
   std::mutex data_mutex_;
   std::mutex image_mutex_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr server_client_;
@@ -161,6 +202,10 @@ private:
   std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Path>> path_sub_;
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Image>> image_r_sub_;
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Image>> image_l_sub_;
+<<<<<<< HEAD
+=======
+  std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Image>> depth_sub_;
+>>>>>>> dev
   httplib::Server server_;
   std::thread server_thread_;
 
@@ -281,6 +326,12 @@ private:
                   std_msgs::msg::String ctrl_msg;
                   ctrl_msg.data = "S";
                   ctrl_pub_->publish(ctrl_msg);
+<<<<<<< HEAD
+=======
+                  std_msgs::msg::String state_msg;
+                  state_msg.data = "IDLE";
+                  state_pub_->publish(state_msg);
+>>>>>>> dev
                   res.set_redirect("/");
                 });
     server_.Get("/control",
@@ -372,6 +423,22 @@ private:
                     res.set_content("No image available", "text/plain");
                   }
                 });
+<<<<<<< HEAD
+=======
+    server_.Get("/camera_d.jpg",
+                [this](const httplib::Request &, httplib::Response &res) {
+                  std::lock_guard<std::mutex> lock(image_mutex_);
+                  if (!latest_depth_.empty()) {
+                    std::vector<uchar> buf;
+                    cv::imencode(".jpg", latest_depth_, buf);
+                    res.set_content(reinterpret_cast<const char *>(buf.data()),
+                                    buf.size(), "image/jpeg");
+                  } else {
+                    res.status = 404;
+                    res.set_content("No image available", "text/plain");
+                  }
+                });
+>>>>>>> dev
 
     RCLCPP_INFO(this->get_logger(),
                 "HTTP server listening on http://0.0.0.0:8080");

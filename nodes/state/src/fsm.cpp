@@ -16,17 +16,17 @@ FSM::State FSM::getState() {
 std::string FSM::toString() {
   switch (current_state_) {
   case State::INIT:
-    return "Initializing";
+    return "INIT";
   case State::IDLE:
-    return "Waiting";
+    return "IDLE";
   case State::NAV:
-    return "Navigating";
+    return "NAV";
   case State::ALIGN:
-    return "Aligning";
+    return "ALIGN";
   case State::CTRL:
-    return "User control";
+    return "CTRL";
   case State::ERROR:
-    return "Error";
+    return "ERROR";
   default:
     return "Unkown";
   }

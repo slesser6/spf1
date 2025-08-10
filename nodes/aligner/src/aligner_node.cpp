@@ -33,14 +33,21 @@ public:
 
     pr_vals_ = {0, 0, 0, 0};
     received_ = 0;
+    RCLCPP_INFO(get_logger(), "AlignerNode started");
   }
 
 private:
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr ctrl_pub_;
+  std::array<rclcpp::Subscription<sensor_msgs::msg::Illuminance>::SharedPtr, 4>
+      pr_subs_;
+  std::array<double, 4> pr_vals_;
+  uint8_t received_;
+
   /**
    * @brief Create a path to align with the sunniest area
    *
    * Receives a photoresistor message and when a message from all 4 is received,
-   * then creates a path.
+   * then sends a control message to the MotorNode for which direction to move.
    *
    * @param msg the Illuminance message.
    * @param num Which photoresistor.
@@ -76,18 +83,12 @@ private:
       received_ = 0;
     }
   }
-
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr ctrl_pub_;
-  std::array<rclcpp::Subscription<sensor_msgs::msg::Illuminance>::SharedPtr, 4>
-      pr_subs_;
-  std::array<double, 4> pr_vals_;
-  uint8_t received_;
 };
 
 /**
- * @brief Main entry point for StateNode.
+ * @brief Main entry point for AlignerNode.
  *
- * Initializes ROS 2, spins the StateNode instance, then shuts down.
+ * Initializes ROS 2, spins the AlignerNode instance, then shuts down.
  *
  * @param argc Argument count.
  * @param argv Argument vector.

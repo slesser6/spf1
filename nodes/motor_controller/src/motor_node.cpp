@@ -8,24 +8,18 @@
 
 /**
  * @class MotorNode
- * @brief ROS 2 node that controls motors based on path and IMU sensor inputs.
+ * @brief ROS 2 node that controls motors.
  *
- * Subscribes to a navigation path and IMU orientation data,
- * uses a PID controller to adjust motor commands to follow the path,
- * and provides a status service to report readiness.
+ * Subscribes to a state, user control messaeges, a navigation path,
+ * and IMU data, then uses the state to determine whether to control
+ * the motors based on user input or the navigation path. Uses a PID
+ * controller to adjust motor commands to follow the path.
  */
 class MotorNode : public rclcpp::Node {
 public:
-  /**
-   * @brief Constructor for MotorNode.
-   *
-   * Initializes motor driver, sets up PID controller,
-   * subscribes to path and IMU topics, creates status service,
-   * and starts a timer for the control loop.
-   */
   MotorNode()
       : Node("motor_node"), path_received_(false), imu_received_(false) {
-    motorDriverInit();
+
     pid_controller_ = PIDController();
     pid_controller_.kp = 1.5f;
     pid_controller_.ki = 0.0f;
@@ -33,7 +27,6 @@ public:
     pid_controller_.prev_error = 0.0f;
     pid_controller_.integral = 0.0f;
 
-    // Subscribers
     state_sub_ = this->create_subscription<std_msgs::msg::String>(
         "/state/get", 10,
         std::bind(&MotorNode::onState, this, std::placeholders::_1));
@@ -53,10 +46,29 @@ public:
                                      std::bind(&MotorNode::controlLoop, this));
 
     last_time_ = now();
+    initialized_ = false;
     RCLCPP_INFO(get_logger(), "MotorNode started");
   }
 
 private:
+  // ROS Topics
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr state_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr ctrl_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr status_srv_;
+  rclcpp::TimerBase::SharedPtr timer_;
+
+  // State
+  bool path_received_, imu_received_, ctrl_received_, initialized_;
+  geometry_msgs::msg::Pose target_pose_;
+  geometry_msgs::msg::Quaternion current_orientation_;
+  rclcpp::Time last_time_;
+  std::string state_, current_ctrl_;
+
+  // PID Controller
+  PIDController pid_controller_;
+
   /**
    * @brief Callback for receiving state change messages.
    *
@@ -111,13 +123,22 @@ private:
   /**
    * @brief Main control loop called periodically by the timer.
    *
-   * Checks for valid inputs, computes yaw error using PID, clamps speed,
-   * and sends motor commands accordingly.
+   * If the state is INIT - initializes the motors
+   * If the state is CTRL or ALIGN - uses the control messages to move
+   * forwards, backwards, left, or right.
+   * If the state is NAV - Checks for valid inputs, computes yaw error
+   * using PID, clamps the speed, and sends motor commands accordingly.
    * If inputs are missing, motors are stopped.
    */
   void controlLoop() {
 
-    if (state_ == "CTRL" || state_ == "ALIGN") {
+    if (state_ == "INIT") {
+      if (!initialized_) {
+        motorDriverInit();
+        initialized_ = true;
+        RCLCPP_INFO(get_logger(), "Motors initialized");
+      }
+    } else if (state_ == "CTRL" || state_ == "ALIGN") {
       if (!ctrl_received_) {
         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
                              "Waiting for inputs...");
@@ -126,16 +147,20 @@ private:
       }
       switch (current_ctrl_[0]) {
       case 'R':
-        motorTurnRight(100);
+        motorTurnRight(70);
+        RCLCPP_DEBUG(get_logger(), "Turning right");
         break;
       case 'L':
-        motorTurnLeft(100);
+        motorTurnLeft(70);
+        RCLCPP_DEBUG(get_logger(), "Turning left");
         break;
       case 'F':
-        motorDriveForward(100);
+        motorDriveForward(70);
+        RCLCPP_DEBUG(get_logger(), "Driving forwards");
         break;
       case 'B':
-        motorDriveBackward(100);
+        RCLCPP_DEBUG(get_logger(), "Driving backwards");
+        motorDriveBackward(70);
         break;
       default:
         motorStop();
@@ -211,24 +236,6 @@ private:
     float dy = target.position.y;
     return std::atan2(dy, dx); // Assume robot starts at 0,0 facing x+
   }
-
-  // ROS Interfaces
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr state_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr ctrl_sub_;
-  rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr status_srv_;
-  rclcpp::TimerBase::SharedPtr timer_;
-
-  // State
-  bool path_received_, imu_received_, ctrl_received_;
-  geometry_msgs::msg::Pose target_pose_;
-  geometry_msgs::msg::Quaternion current_orientation_;
-  rclcpp::Time last_time_;
-  std::string state_, current_ctrl_;
-
-  // PID Controller
-  PIDController pid_controller_;
 };
 
 /**
