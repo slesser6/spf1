@@ -1,0 +1,6 @@
+build/
+install/
+log/
+docs/
+test_bins/
+.vscode/
