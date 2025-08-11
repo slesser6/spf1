@@ -96,12 +96,12 @@ private:
    * @brief Callback for receiving navigation path messages.
    *
    * Updates the target pose to the last pose in the path and marks path as
-   * received.
+   * received if the state is FIND.
    *
    * @param msg Shared pointer to the received Path message.
    */
   void onPath(const nav_msgs::msg::Path::SharedPtr msg) {
-    if (!msg->poses.empty()) {
+    if (!msg->poses.empty() && state_ == "FIND") {
       target_pose_ = msg->poses.back().pose;
       path_received_ = true;
     }
@@ -181,7 +181,7 @@ private:
       last_time_ = now();
 
       float control_signal = pidCompute(&pid_controller_, target_yaw, yaw, dt);
-      int speed = clampSpeed(std::abs(control_signal) * 100.0f);
+      int speed = clampSpeed(std::abs(control_signal) * 70.0f);
 
       if (std::abs(control_signal) < 0.05f) {
         motorDriveForward(speed);
@@ -216,7 +216,6 @@ private:
    * @return float Yaw angle in radians.
    */
   float getYawFromQuaternion(const geometry_msgs::msg::Quaternion &q) {
-    // Basic Euler extraction (assuming flat ground)
     float siny_cosp = 2 * (q.w * q.z + q.x * q.y);
     float cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
     return std::atan2(siny_cosp, cosy_cosp);
@@ -231,7 +230,6 @@ private:
    * @return float Target yaw angle in radians.
    */
   float computeTargetYaw(const geometry_msgs::msg::Pose &target) {
-    // Simple heading: use x/y from target pose
     float dx = target.position.x;
     float dy = target.position.y;
     return std::atan2(dy, dx); // Assume robot starts at 0,0 facing x+

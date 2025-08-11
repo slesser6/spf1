@@ -19,6 +19,8 @@ std::string FSM::toString() {
     return "INIT";
   case State::IDLE:
     return "IDLE";
+  case State::FIND:
+    return "FIND";
   case State::NAV:
     return "NAV";
   case State::ALIGN:

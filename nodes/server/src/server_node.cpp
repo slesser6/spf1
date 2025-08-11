@@ -228,6 +228,9 @@ private:
 <form action="/init" method="get">
   <button type="submit">Initialize</button>
 </form>
+<form action="/find" method="get">
+  <button type="submit">Find</button>
+</form>
 <form action="/navigate" method="get">
   <button type="submit">Navigate</button>
 </form>
@@ -246,6 +249,13 @@ private:
                 [this](const httplib::Request &, httplib::Response &res) {
                   std_msgs::msg::String state_msg;
                   state_msg.data = "INIT";
+                  state_pub_->publish(state_msg);
+                  res.set_redirect("/");
+                });
+    server_.Get("/find",
+                [this](const httplib::Request &, httplib::Response &res) {
+                  std_msgs::msg::String state_msg;
+                  state_msg.data = "FIND";
                   state_pub_->publish(state_msg);
                   res.set_redirect("/");
                 });

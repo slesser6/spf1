@@ -96,7 +96,7 @@ private:
       return;
 
     RCLCPP_DEBUG(this->get_logger(),
-                "Processing depth and brightness to find sunniest area.");
+                 "Processing depth and brightness to find sunniest area.");
 
     cv::Rect sunniest_area = findSunniestArea(last_brightness_);
 

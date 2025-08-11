@@ -18,7 +18,7 @@ using namespace std::chrono_literals;
 #define GYRO_SENSITIVITY 131.0f    // assuming 131 LSB/(°/s)
 #define ACCEL_SENSITIVITY 16384.0f // assuming default sensitivity 16384 LSB/g
 #define SAMPLE_FREQ 10.0f          // Hz
-
+#define BIAS_SAMPLES 100
 /**
  * @class ImuNode
  * @brief ROS 2 node that reads data from MPU6050 IMU sensor via I2C and
@@ -63,6 +63,41 @@ public:
     char config[2] = {PWR_MGMT_1, 0};
     write(i2c_file_, config, 2);
 
+    RCLCPP_INFO(this->get_logger(), "Calibrating IMU bias, keep IMU still...");
+    float sum_gx = 0, sum_gy = 0, sum_gz = 0, sum_ax = 0, sum_ay = 0,
+          sum_az = 0;
+
+    for (int i = 0; i < BIAS_SAMPLES; ++i) {
+      int16_t ax = readWord(ACCEL_XOUT_H);
+      int16_t ay = readWord(ACCEL_XOUT_H + 2);
+      int16_t az = readWord(ACCEL_XOUT_H + 4);
+
+      int16_t gx = readWord(ACCEL_XOUT_H + 8);
+      int16_t gy = readWord(ACCEL_XOUT_H + 10);
+      int16_t gz = readWord(ACCEL_XOUT_H + 12);
+
+      sum_ax += ax;
+      sum_ay += ay;
+      sum_az += az;
+
+      sum_gx += gx;
+      sum_gy += gy;
+      sum_gz += gz;
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    gyro_bias_x_ = sum_gx / BIAS_SAMPLES;
+    gyro_bias_y_ = sum_gy / BIAS_SAMPLES;
+    gyro_bias_z_ = sum_gz / BIAS_SAMPLES;
+    accel_bias_x_ = sum_ax / BIAS_SAMPLES;
+    accel_bias_y_ = sum_ay / BIAS_SAMPLES;
+    accel_bias_z_ = sum_az / BIAS_SAMPLES;
+    RCLCPP_INFO(this->get_logger(),
+                "Gyro bias calibrated: x=%.2f y=%.2f z=%.2f, Accel bias "
+                "calibrated: x=%.2f y=%.2f z=%.2f",
+                gyro_bias_x_, gyro_bias_y_, gyro_bias_z_, accel_bias_x_,
+                accel_bias_y_, accel_bias_z_);
+
     RCLCPP_INFO(get_logger(), "ImuNode started");
   }
 
@@ -77,6 +112,8 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
   int i2c_file_;
   Madgwick filter_;
+  float gyro_bias_x_, gyro_bias_y_, gyro_bias_z_, accel_bias_x_, accel_bias_y_,
+      accel_bias_z_;
 
   /**
    * @brief Reads a 16-bit signed word from the specified MPU6050 register.
@@ -102,12 +139,19 @@ private:
     imu_msg.header.frame_id = "imu_link";
 
     // Read raw values
-    int16_t ax = readWord(ACCEL_XOUT_H);
-    int16_t ay = readWord(ACCEL_XOUT_H + 2);
-    int16_t az = readWord(ACCEL_XOUT_H + 4);
-    int16_t gx = readWord(ACCEL_XOUT_H + 8);
-    int16_t gy = readWord(ACCEL_XOUT_H + 10);
-    int16_t gz = readWord(ACCEL_XOUT_H + 12);
+    int16_t ax_raw = readWord(ACCEL_XOUT_H);
+    int16_t ay_raw = readWord(ACCEL_XOUT_H + 2);
+    int16_t az_raw = readWord(ACCEL_XOUT_H + 4);
+    int16_t gx_raw = readWord(ACCEL_XOUT_H + 8);
+    int16_t gy_raw = readWord(ACCEL_XOUT_H + 10);
+    int16_t gz_raw = readWord(ACCEL_XOUT_H + 12);
+
+    float ax = (ax_raw - accel_bias_x_);
+    float ay = (ay_raw - accel_bias_y_);
+    float az = (az_raw - accel_bias_z_);
+    float gx = (gx_raw - gyro_bias_x_);
+    float gy = (gy_raw - gyro_bias_y_);
+    float gz = (gz_raw - gyro_bias_z_);
 
     // Convert to m/s²
     imu_msg.linear_acceleration.x = ax * G / ACCEL_SENSITIVITY;
@@ -125,10 +169,10 @@ private:
     float q2 = filter_.q2;
     float q3 = filter_.q3;
 
-    imu_msg.orientation.x = q0;
-    imu_msg.orientation.y = q1;
-    imu_msg.orientation.z = q2;
-    imu_msg.orientation.w = q3;
+    imu_msg.orientation.x = q1;
+    imu_msg.orientation.y = q2;
+    imu_msg.orientation.z = q3;
+    imu_msg.orientation.w = q0;
 
     imu_pub_->publish(imu_msg);
   }

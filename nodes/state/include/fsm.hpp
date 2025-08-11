@@ -13,6 +13,7 @@ public:
     {
         INIT,
         IDLE,
+        FIND,
         NAV,
         ALIGN,
         CTRL,
