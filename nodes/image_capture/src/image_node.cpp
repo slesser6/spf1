@@ -25,10 +25,10 @@ public:
         "/camera/right/image_raw", 10);
     cam_l_pub_ = this->create_publisher<sensor_msgs::msg::Image>(
         "/camera/left/image_raw", 10);
-    // cam_r_mono_pub_ = this->create_publisher<sensor_msgs::msg::Image>(
-    //     "/camera/right/image_mono", 10);
-    // cam_l_mono_pub_ = this->create_publisher<sensor_msgs::msg::Image>(
-    //     "/camera/left/image_mono", 10);
+    cam_r_mono_pub_ = this->create_publisher<sensor_msgs::msg::Image>(
+        "/camera/right/image_mono", 10);
+    cam_l_mono_pub_ = this->create_publisher<sensor_msgs::msg::Image>(
+        "/camera/left/image_mono", 10);
 
     timer_ = this->create_wall_timer(
         std::chrono::seconds(1), std::bind(&ImageNode::processFrames, this));
@@ -54,7 +54,8 @@ public:
 private:
   int skip_count_ = 0;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr cam_r_pub_, cam_l_pub_;
-  //rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr cam_r_mono_pub_, cam_l_mono_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr cam_r_mono_pub_,
+      cam_l_mono_pub_;
   cv::VideoCapture cap_r_, cap_l_;
   rclcpp::TimerBase::SharedPtr timer_;
 
@@ -88,12 +89,12 @@ private:
       sensor_msgs::msg::Image::SharedPtr msg_r =
           cv_bridge::CvImage(header, "bgr8", frame_r).toImageMsg();
       cam_r_pub_->publish(*msg_r);
-      // cv::Mat gray_r;
-      // cv::cvtColor(frame_r, gray_r, cv::COLOR_BGR2GRAY);
-      // header.frame_id = "camera_right_mono_frame";
-      // sensor_msgs::msg::Image::SharedPtr msg_m_r =
-      //     cv_bridge::CvImage(header, "mono8", gray_r).toImageMsg();
-      // cam_r_mono_pub_->publish(*msg_m_r);
+      cv::Mat gray_r;
+      cv::cvtColor(frame_r, gray_r, cv::COLOR_BGR2GRAY);
+      header.frame_id = "camera_right_mono_frame";
+      sensor_msgs::msg::Image::SharedPtr msg_m_r =
+          cv_bridge::CvImage(header, "mono8", gray_r).toImageMsg();
+      cam_r_mono_pub_->publish(*msg_m_r);
     }
 
     if (frame_l.empty()) {
@@ -106,12 +107,12 @@ private:
       sensor_msgs::msg::Image::SharedPtr msg_l =
           cv_bridge::CvImage(header, "bgr8", frame_l).toImageMsg();
       cam_l_pub_->publish(*msg_l);
-      // cv::Mat gray_l;
-      // cv::cvtColor(frame_l, gray_l, cv::COLOR_BGR2GRAY);
-      // header.frame_id = "camera_left_mono_frame";
-      // sensor_msgs::msg::Image::SharedPtr msg_m_l =
-      //     cv_bridge::CvImage(header, "mono8", gray_l).toImageMsg();
-      // cam_l_mono_pub_->publish(*msg_m_l);
+      cv::Mat gray_l;
+      cv::cvtColor(frame_l, gray_l, cv::COLOR_BGR2GRAY);
+      header.frame_id = "camera_left_mono_frame";
+      sensor_msgs::msg::Image::SharedPtr msg_m_l =
+          cv_bridge::CvImage(header, "mono8", gray_l).toImageMsg();
+      cam_l_mono_pub_->publish(*msg_m_l);
     }
   }
 };

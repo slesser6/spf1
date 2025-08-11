@@ -2,6 +2,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_srvs/srv/set_bool.hpp"
 #include <cv_bridge/cv_bridge.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <opencv2/opencv.hpp>
 #include <sensor_msgs/msg/illuminance.hpp>
@@ -41,6 +42,14 @@ public:
         "/state/get", 10, [this](std_msgs::msg::String::SharedPtr msg) {
           std::lock_guard<std::mutex> lock(data_mutex_);
           latest_values_["/state/get"] = msg->data;
+        });
+    pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/sun_pos", 10, [this](geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+          std::lock_guard<std::mutex> lock(data_mutex_);
+          std::ostringstream ss;
+          ss << "sunniest position: [" << msg->pose.position.x << ", "
+             << msg->pose.position.y << ", " << msg->pose.position.z << "]";
+          latest_values_["/sun_pos"] = ss.str();
         });
     image_r_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
         "/camera/right/image_raw", 10,
@@ -172,6 +181,8 @@ private:
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Image>> image_r_sub_;
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Image>> image_l_sub_;
   std::shared_ptr<rclcpp::Subscription<sensor_msgs::msg::Image>> depth_sub_;
+  std::shared_ptr<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>>
+      pose_sub_;
   httplib::Server server_;
   std::thread server_thread_;
 

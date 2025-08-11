@@ -4,11 +4,11 @@
 #include <sensor_msgs/msg/image.hpp>
 
 // tuning params
-#define NUM_DISPARITIES 6
-#define BLOCK_SIZE 1
+#define NUM_DISPARITIES 112
+#define BLOCK_SIZE 21
 
 /**
- * @class StateNode
+ * @class StereoNode
  * @brief A ROS 2 node that calculates the depth image from the
  * left and right camera captures.
  *

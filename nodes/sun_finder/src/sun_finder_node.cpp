@@ -5,6 +5,10 @@
 #include <sensor_msgs/msg/image.hpp>
 
 #define WINDOW_SIZE 50
+#define FX 709.5681668111439
+#define FY 724.0670636405863
+#define CX 299.95929397035593
+#define CY 254.89671690589654
 
 /**
  * @class SunFinderNode
@@ -26,12 +30,6 @@ public:
     pose_pub_ =
         this->create_publisher<geometry_msgs::msg::PoseStamped>("/sun_pos", 10);
 
-    // TODO: camera params
-    fx_ = 525.0; // Focal length x
-    fy_ = 525.0; // Focal length y
-    cx_ = 319.5; // Principal point x
-    cy_ = 239.5; // Principal point y
-
     RCLCPP_INFO(this->get_logger(), "SunFinder started");
   }
 
@@ -43,8 +41,6 @@ private:
   cv::Mat last_depth_;
   cv::Mat last_brightness_;
   std::mutex data_mutex_;
-
-  double fx_, fy_, cx_, cy_;
 
   /**
    * @brief Callback called when a depth message is received from the stereo
@@ -100,7 +96,7 @@ private:
       return;
 
     RCLCPP_DEBUG(this->get_logger(),
-                 "Processing depth and brightness to find sunniest area.");
+                "Processing depth and brightness to find sunniest area.");
 
     cv::Rect sunniest_area = findSunniestArea(last_brightness_);
 
@@ -115,8 +111,8 @@ private:
       return;
     }
 
-    float x = (sun_pos.x - cx_) * depth / fx_;
-    float y = (sun_pos.y - cy_) * depth / fy_;
+    float x = (sun_pos.x - CX) * depth / FX;
+    float y = (sun_pos.y - CY) * depth / FY;
     float z = depth;
 
     geometry_msgs::msg::PoseStamped pose;

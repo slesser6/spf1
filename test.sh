@@ -8,3 +8,4 @@ g++ ./nodes/test/test_opencl.cpp -o ./test_bins/test_opencl `pkg-config --cflags
 g++ ./nodes/test/test_opengl.cpp -o ./test_bins/test_opengl `pkg-config --cflags --libs opencv4`
 g++ ./nodes/test/test_gstreamer.cpp -o ./test_bins/test_gstreamer `pkg-config --cflags --libs opencv4`
 g++ ./nodes/test/test_dual_camera.cpp -o ./test_bins/test_dual_camera `pkg-config --cflags --libs opencv4`
+g++ ./nodes/test/depth_test.cpp -o ./test_bins/depth_test `pkg-config --cflags --libs opencv4`

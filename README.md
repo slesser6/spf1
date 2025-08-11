@@ -2,20 +2,21 @@
 Solar Positioning Friend v1
 
 ## Purpose
-Embedded Systems Development Lab project to create a robot that navigates to the sunniest spot for solar harvesting with a solar panel
+Embedded Systems Development Lab project to create a robot that navigates to the sunniest spot for solar harvesting with a solar panel.
 
 ## Setup
+
+### RPi
+Tested on Ubuntu 22.04. For the GPIO on the RPi, install wiringpi with apt and enable permissions for I2C: 
 ```
 sudo apt install wiringpi
-sudo apt install libmosquitto-dev mosquitto
-sudo apt install doxygen
+sudo chmod 666 /dev/i2c-1
 ```
-
 
 ### ROS
 
 #### Installation
-Followed https://docs.ros.org/en/kilted/Installation/Ubuntu-Install-Debs.html to install ROS distro "Kilted Kaiju"
+Followed https://docs.ros.org/en/kilted/Installation/Ubuntu-Install-Debs.html to install ROS distro "Kilted Kaiju" using the following commands:
 ```
 sudo apt install software-properties-common
 sudo add-apt-repository universe
@@ -33,44 +34,54 @@ sudo apt install python3-colcon-common-extensions
 ```
 
 #### Node setup
+Create new packages with:
 ```
 ros2 pkg create  --build-type ament_cmake --license Apache-2.0 pkg_name
-colcon build --packages-select pkg_name
-. install/setup.bash
-ros2 run pkg_name node_name
-ros2 topic echo /topic name
 ```
 
-### MQTT setup
+Use the build.sh and run.sh script to build and run the node packages in this repo or build and run each package individually with:
+```
+colcon build --packages-select pkg_name # build
+. install/setup.bash                    # install
+ros2 run pkg_name node_name             # run
+ros2 topic echo /topic name             # monitor
+```
+
+### MQTT
+Install mosquitto with:
+```
+sudo apt install libmosquitto-dev mosquitto
+```
+In `/etc/mosquitto/mosquitto.conf`, add the following lines to bind the listener to the host IP on port 1883:
+```
+listener 1883 <HOST IP>
+allow_anonymous true
+```
+Enable and start mosquitto with:
 ```
 sudo systemctl enable mosquitto
 sudo systemctl start mosquitto
 ```
-Bind listener to host IP on port 1883
-
-### I2C setup
-```
-sudo chmod 666 /dev/i2c-1
-```
+Update the MQTT_HOST macro in the pr_node.cpp file to the host IP. Also update the WIFI_SSID, WIFI_PASS, and BROKER_URI on the ESP32.
 
 ### OpenCV
 
-OpenCL
+For OpenCL, install the following packages (not needed):
 ```
 sudo apt install build-essential git cmake opencl-headers ocl-icd-opencl-dev
 ```
 
-OpenGL
+For OpenGL, install the following packages:
 ```
 sudo apt install pkg-config mesa-utils libglu1-mesa-dev freeglut3-dev mesa-common-dev libglew-dev libglfw3-dev libglm-dev libao-dev libmpg123-dev
 ```
 
-Gstreamer
+For Gstreamer, install the following packages:
 ```
 sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
 ```
 
-OpenCV
+To build OpenCV run:
 ```
 sudo apt install libharfbuzz-dev libtesseract-dev libgoogle-glog-dev libgflags-dev libgtk-3-dev pocl-opencl-icd ocl-icd-libopencl1
 cd ~
@@ -92,28 +103,31 @@ cmake -D CMAKE_BUILD_TYPE=RELEASE \
       -D BUILD_EXAMPLES=OFF ..
 ```
 
-## Usages
+## Camera Calibration
+1. Bring up a 9x6 chessboard with 20mm squares on [this](https://calib.io/pages/camera-calibration-pattern-generator) website or print it out and hold it in front of the camera
+2. Run the capture_calibration_images.py script while moving the chessboard at different angles in front of the camera
+3. Run the calibrate.py script to extract the camera parameters for the sun_finder node
 
-To use ROS, run:
+## Documentation
+Install the Doxygen package:
 ```
-source /opt/ros/kilted/setup.bash
+sudo apt install doxygen
 ```
-
-To build all the nodes, run:
-```
-bash build.sh
-```
-
-To run all the nodes, run:
-```
-bash run.sh
-```
-
 To regenerate the docs and serve them, run:
 ```
 bash docs.sh
 ```
 
+## Quick Start
+
+To build all the nodes, run:
+```
+bash build.sh
+```
+To run all the nodes, run:
+```
+bash run.sh
+```
 To generate the test executables, run
 ```
 bash test.sh
